@@ -1,0 +1,10 @@
+^D:\PROJECTS\GMSH-4.11.1-SOURCE\CMAKELISTS.TXT
+setlocal
+"D:\Program Files\CMake\bin\cmake.exe" -SD:/Projects/gmsh-4.11.1-source -BD:/Projects/gmsh-4.11.1-source/build --check-stamp-file D:/Projects/gmsh-4.11.1-source/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

@@ -1,0 +1,10 @@
+^D:\PROJECTS\GMSH-4.11.1-SOURCE\BUILD\CMAKEFILES\E2039EAF9ACF4C4E66A54B5330A82086\GENERATE.STAMP.RULE
+setlocal
+"D:\Program Files\CMake\bin\cmake.exe" -SD:/Projects/gmsh-4.11.1-source -BD:/Projects/gmsh-4.11.1-source/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/Projects/gmsh-4.11.1-source/build/gmsh.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
