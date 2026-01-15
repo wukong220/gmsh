@@ -95,6 +95,8 @@ bool parse_swap_patterns_md(const std::string &path,
         t.push_back(v);
         if(ss.peek() == ',') ss.get();
       }
+      // store triangles in sorted (canonical) order for comparison
+      std::sort(t.begin(), t.end());
       triangles_map[curk].push_back(t);
     }
     if(section == TRIANGULS) {
@@ -131,7 +133,11 @@ int main()
 
     // build triangle index map from generated triangles for consistent ordering
     std::map<std::vector<int>, int> tri_index;
-    for(size_t i = 0; i < gen_tri.size(); ++i) tri_index[gen_tri[i]] = (int)i;
+    for(size_t i = 0; i < gen_tri.size(); ++i) {
+      auto tri = gen_tri[i];
+      std::sort(tri.begin(), tri.end());
+      tri_index[tri] = (int)i;
+    }
 
     // compare triangles count
     if(md_triangles[k].size() != gen_tri.size()) {
@@ -147,39 +153,49 @@ int main()
       ok = false;
     }
 
-    // compare content by mapping generated triangulations into triangle indices
-    for(size_t ti = 0; ti < gen_tris.size() && ti < md_trianguls[k].size(); ++ti) {
-      // build index list for gen_tris[ti]
-      std::vector<int> idxs;
-      for(auto &tri : gen_tris[ti]) {
-        std::vector<int> tri_sorted = tri;
-        // ensure same orientation as generated gen_tri ordering
-        auto it = tri_index.find(tri_sorted);
-        if(it == tri_index.end()) {
-          // try permutations (since our gen_tri uses increasing order)
-          std::sort(tri_sorted.begin(), tri_sorted.end());
-          auto it2 = tri_index.find(tri_sorted);
-          if(it2 == tri_index.end()) {
-            std::cerr << "k="<<k<<" couldn't find generated triangle for tri{"<<tri[0]<<","<<tri[1]<<","<<tri[2]<<"}\n";
-            ok = false; break;
-          } else idxs.push_back(it2->second);
-        } else idxs.push_back(it->second);
+    // compare content by mapping md triangulations into generated triangle indices
+    // First build md index -> gen index mapping
+    std::vector<int> md2gen_idx;
+    md2gen_idx.resize(md_triangles[k].size(), -1);
+    for(size_t j = 0; j < md_triangles[k].size(); ++j) {
+      auto tri = md_triangles[k][j];
+      std::sort(tri.begin(), tri.end());
+      auto it = tri_index.find(tri);
+      if(it == tri_index.end()) {
+        std::cerr << "k="<<k<<" md triangle not found in generated triangles\n";
+        ok = false;
+      } else md2gen_idx[j] = it->second;
+    }
+
+    // build multiset representations for generated triangulations
+    std::multiset<std::multiset<int>> gen_sets;
+    for(auto &gt : gen_tris) {
+      std::multiset<int> s;
+      for(auto &tri : gt) {
+        Tri t = tri;
+        std::sort(t.begin(), t.end());
+        auto it = tri_index.find(t);
+        if(it==tri_index.end()) { ok=false; break; }
+        s.insert(it->second);
       }
-      // build md indices from md_trianguls[k][ti]
-      std::vector<int> md_idx = md_trianguls[k][ti];
-      // compare by ignoring trailing -1s and ordering
-      while(!md_idx.empty() && md_idx.back() == -1) md_idx.pop_back();
-      if(idxs.size() != md_idx.size()) {
-        std::cerr << "k="<<k<<" triangulation "<<ti<<" size mismatch gen="<<idxs.size()<<" md="<<md_idx.size()<<"\n";
-        ok = false; break;
+      gen_sets.insert(s);
+    }
+
+    // build multiset representations for md triangulations (mapped to gen indices)
+    std::multiset<std::multiset<int>> md_sets;
+    for(auto &mr : md_trianguls[k]) {
+      std::multiset<int> s;
+      for(int idx : mr) {
+        if(idx == -1) break;
+        if(idx < 0 || (size_t)idx >= md2gen_idx.size()) { ok=false; break; }
+        s.insert(md2gen_idx[idx]);
       }
-      // We compare sets (order of triangles in a triangulation can differ)
-      std::multiset<int> sgen(idxs.begin(), idxs.end());
-      std::multiset<int> smd(md_idx.begin(), md_idx.end());
-      if(sgen != smd) {
-        std::cerr << "k="<<k<<" triangulation "<<ti<<" content mismatch\n";
-        ok = false; break;
-      }
+      md_sets.insert(s);
+    }
+
+    if(gen_sets != md_sets) {
+      std::cerr << "k="<<k<<" triangulations set mismatch\n";
+      ok = false;
     }
     std::cout << "k="<<k<<" gen triangles="<<gen_tri.size()<<" gen trianguls="<<gen_tris.size() <<"\n";
   }
